@@ -23,3 +23,5 @@ target_compile_definitions(qtshadowcache PRIVATE QTSHADOWCACHE_LIBRARY)
 
 
 include("./output/makeme.cmake")
+
+

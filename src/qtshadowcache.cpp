@@ -10,8 +10,37 @@
 
 namespace QSDC {
 
-Result Qtshadowcache::create(QWidget *parent, quint8 window_radius, quint8 blur_radius, const QColor &shadow_color, const QColor &background_color) {
+QWidget *background = nullptr;
+QHBoxLayout *layout = nullptr;
+QWidget *child = nullptr;
+QGraphicsDropShadowEffect *sd = nullptr;
+
+QList<Result> caches;
+
+
+QString qcolor2qss(const QColor &c) {
+    int r, g, b, a;
+    c.getRgb(&r, &g, &b, &a);
+    return QString(R"(rgba(%1,%2,%3,%4))").arg(r).arg(g).arg(b).arg(a);
+}
+
+QString colorToArgbString(const QColor &color) {
+    return QString("#%1%2%3%4").arg(color.alpha(), 2, 16, QChar('0')).arg(color.red(), 2, 16, QChar('0')).arg(color.green(), 2, 16, QChar('0')).arg(color.blue(), 2, 16, QChar('0')).toLower();
+}
+
+Result Qtshadowcache::create(const Request &request) {
+    foreach (auto i, caches) {
+        if (i.request == request) {
+            i.cached = true;
+            return i;
+        }
+    }
+    while (caches.length() > 10) {
+        caches.removeFirst();
+    }
+
     Result result;
+    result.request = request;
 
     // qDebug() << qApp;
 
@@ -21,19 +50,26 @@ Result Qtshadowcache::create(QWidget *parent, quint8 window_radius, quint8 blur_
     // window_radius *= 2;
     // blur_radius *= 2;
 
-    // quint16 _margin = blur_radius;
-    quint16 _margin = qMax(2, blur_radius - 2);
-    if (blur_radius > 6) {
-        _margin = qRound(static_cast<double>(blur_radius) * 0.7);
+    // quint16 _margin = request.blur_radius;
+    quint16 _margin = qMax(2, request.blur_radius - 2);
+    if (request.blur_radius > 6) {
+        _margin = qRound(static_cast<double>(request.blur_radius) * 0.7);
     }
 
-    QWidget *background = new QWidget(parent);
+    if (!background) {
+        background = new QWidget();
+    }
+    background->setParent(request.parent);
     background->setAttribute(Qt::WA_TranslucentBackground);
     background->resize(_width, _width);
     background->setFixedSize(_width, _width);
-    QHBoxLayout *layout = new QHBoxLayout(background);
+    if (!layout) {
+        layout = new QHBoxLayout(background);
+    }
     layout->setContentsMargins(_margin, _margin, _margin, _margin);
-    QLabel *child = new QLabel(background);
+    if (!child) {
+        child = new QLabel(background);
+    }
     layout->addWidget(child);
     background->setLayout(layout);
 
@@ -48,21 +84,26 @@ Result Qtshadowcache::create(QWidget *parent, quint8 window_radius, quint8 blur_
         // palette.setColor(QPalette::Window, background_color);
         // child->setAutoFillBackground(true);
         // child->setPalette(palette);
-        child->setStyleSheet(QString("background-color: rgba(%1,%2,%3,%4);"
+        child->setStyleSheet(QString("background-color: %1;"
                                      "border: 0px solid black;"
-                                     "border-radius: %5")
-                                 .arg(QString::number(background_color.red()),
-                                      QString::number(background_color.green()),
-                                      QString::number(background_color.blue()),
-                                      QString::number(background_color.alpha()),
-                                      QString::number(window_radius)));
+                                     "border-top-left-radius: %2;"
+                                     "border-top-right-radius: %3;"
+                                     "border-bottom-left-radius: %4;"
+                                     "border-bottom-right-radius: %5;")
+                                 .arg(qcolor2qss(request.background_color),
+                                      QString::number(request.window_radius_left_top),
+                                      QString::number(request.window_radius_right_top),
+                                      QString::number(request.window_radius_left_bottom),
+                                      QString::number(request.window_radius_right_bottom)));
     }
 
 
-    QGraphicsDropShadowEffect *sd = new QGraphicsDropShadowEffect{child};
-    sd->setColor(shadow_color);
+    if (!sd) {
+        sd = new QGraphicsDropShadowEffect{child};
+    }
+    sd->setColor(request.shadow_color);
     sd->setOffset(QPointF(0, 0));
-    sd->setBlurRadius(blur_radius);
+    sd->setBlurRadius(request.blur_radius);
     child->setGraphicsEffect(sd);
 
     background->setVisible(false);
@@ -71,15 +112,50 @@ Result Qtshadowcache::create(QWidget *parent, quint8 window_radius, quint8 blur_
     pixmap.fill(Qt::transparent);
     background->render(&pixmap);
 
-    background->deleteLater();
+    // background->deleteLater();
 
     result.pixmap = pixmap;
     result.width = _width;
     result.margin = _margin;
-    result.blur_radius = blur_radius;
-    result.radius = window_radius;
+
+    result.name = QString("qsdc-%1x%1-%2_%3-%4_%5_%6_%7-%8-%9.png")
+                      .arg(QString::number(result.width),
+                           QString::number(request.blur_radius),
+                           QString::number(result.margin),
+                           QString::number(request.window_radius_left_top),
+                           QString::number(request.window_radius_right_top),
+                           QString::number(request.window_radius_left_bottom),
+                           QString::number(request.window_radius_right_bottom),
+                           colorToArgbString(request.shadow_color).mid(1),
+                           colorToArgbString(request.background_color).mid(1));
+
+    caches.append(result);
 
     return result;
+}
+
+
+bool operator==(const Request &lhs, const Request &rhs) {
+    return std::tie(lhs.parent,
+                    lhs.window_radius_left_top,
+                    lhs.window_radius_left_bottom,
+                    lhs.window_radius_right_top,
+                    lhs.window_radius_right_bottom,
+                    lhs.blur_radius,
+                    lhs.shadow_color,
+                    lhs.background_color)
+           == std::tie(rhs.parent,
+                       rhs.window_radius_left_top,
+                       rhs.window_radius_left_bottom,
+                       rhs.window_radius_right_top,
+                       rhs.window_radius_right_bottom,
+                       rhs.blur_radius,
+                       rhs.shadow_color,
+                       rhs.background_color);
+}
+
+bool operator!=(const Request &lhs, const Request &rhs) {
+    return !(lhs == rhs);
 }
 
 } // namespace QSDC
