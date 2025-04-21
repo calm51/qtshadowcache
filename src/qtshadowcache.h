@@ -1,3 +1,5 @@
+#pragma execution_character_set("utf-8")
+
 #ifndef QTSHADOWCACHE_H
 #define QTSHADOWCACHE_H
 
@@ -5,6 +7,7 @@
 
 #include <QPixmap>
 #include <QWidget>
+#include <QString>
 
 #include <tuple>
 

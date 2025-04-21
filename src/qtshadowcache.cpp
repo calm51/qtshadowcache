@@ -1,3 +1,5 @@
+#pragma execution_character_set("utf-8")
+
 #include "qtshadowcache.h"
 
 
@@ -34,7 +36,7 @@ Result Qtshadowcache::create(const Request &request) {
             i.cached = true;
             return i;
         }
-    }
+    };
     while (caches.length() > 10) {
         caches.removeFirst();
     }
