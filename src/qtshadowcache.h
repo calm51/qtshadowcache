@@ -47,7 +47,7 @@ class QTSHADOWCACHE_EXPORT Qtshadowcache {
     Qtshadowcache() = delete;
 
     static Result create(const Request &request);
-    void clear();
+    static void clear();
 };
 
 } // namespace QSDC
