@@ -8,6 +8,14 @@
 #include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QTemporaryDir>
+
+#if defined Q_OS_ANDROID
+#include "QtAndroid"
+#include <QAndroidJniEnvironment>
+#include <QAndroidJniObject>
+#include <QtAndroidExtras>
+#endif
 
 
 namespace QSDC {
@@ -16,6 +24,7 @@ QWidget *background = nullptr;
 QHBoxLayout *layout = nullptr;
 QWidget *child = nullptr;
 QGraphicsDropShadowEffect *sd = nullptr;
+QTemporaryDir *tempfolder = nullptr;
 
 QList<Result> caches;
 
@@ -31,13 +40,24 @@ QString colorToArgbString(const QColor &color) {
 }
 
 Result Qtshadowcache::create(const Request &request) {
+    if (!tempfolder) {
+        tempfolder = new QTemporaryDir(QDir(
+#ifdef Q_OS_ANDROID
+                                           QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+#else
+                                           QDir::tempPath()
+#endif
+                                               )
+                                           .absoluteFilePath("qsdc-XXXXXX"));
+    }
+
     foreach (auto i, caches) {
         if (i.request == request) {
             i.cached = true;
             return i;
         }
     };
-    while (caches.length() > 10) {
+    while (caches.length() > 32) {
         caches.removeFirst();
     }
 
@@ -46,7 +66,7 @@ Result Qtshadowcache::create(const Request &request) {
 
     // qDebug() << qApp;
 
-    quint16 _width = 256;
+    quint16 _width = 128;
 
     // _width *= 2;
     // window_radius *= 2;
@@ -56,6 +76,8 @@ Result Qtshadowcache::create(const Request &request) {
     quint16 _margin = qMax(2, request.blur_radius - 2);
     if (request.blur_radius > 6) {
         _margin = qRound(static_cast<double>(request.blur_radius) * 0.7);
+    } else if (request.blur_radius == 0) {
+        _margin = 0;
     }
 
     if (!background) {
@@ -131,9 +153,19 @@ Result Qtshadowcache::create(const Request &request) {
                            colorToArgbString(request.shadow_color).mid(1),
                            colorToArgbString(request.background_color).mid(1));
 
+    result.save2 = tempfolder->filePath(result.name);
+
     caches.append(result);
 
     return result;
+}
+
+void Qtshadowcache::clear() {
+    caches.clear();
+    if (tempfolder) {
+        delete tempfolder;
+        tempfolder = nullptr;
+    }
 }
 
 

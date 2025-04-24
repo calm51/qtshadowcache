@@ -6,8 +6,8 @@
 #include "qtshadowcache_global.h"
 
 #include <QPixmap>
-#include <QWidget>
 #include <QString>
+#include <QWidget>
 
 #include <tuple>
 
@@ -37,6 +37,7 @@ struct QTSHADOWCACHE_EXPORT Result {
     bool cached = false;
     QPixmap pixmap; // 阴影图
     QString name;
+    QString save2;
     quint16 width;
     quint16 margin; // 阴影范围
 };
@@ -46,6 +47,7 @@ class QTSHADOWCACHE_EXPORT Qtshadowcache {
     Qtshadowcache() = delete;
 
     static Result create(const Request &request);
+    void clear();
 };
 
 } // namespace QSDC
